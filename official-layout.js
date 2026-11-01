@@ -1715,8 +1715,8 @@ export function installOfficialLayout(win = window, { defaultChatWidth = 55 } = 
      弹出页套弹出页时下面那层往后缩、变暗（data-cw-sheet-under），上面那层低一点（data-cw-sheet-lvl2）；顶栏可以往下拖关闭；
      酒馆的宽 / 大弹窗（不含透明的加载画面）也换成「‹ 上一页 | 标题 | 确定」的顶栏。
      html[data-cw-sheet]：有弹出页开着；[data-cw-sheet-deep]：叠了两层以上；[data-cw-sheet-anim]：开关前后挂过渡；[data-cw-sheet-drag]：拖动中（关过渡）。 */
-  const SHEET_POPUP = 'dialog.popup:is(.wide_dialogue_popup,.wider_dialogue_popup,.large_dialogue_popup):not(.cw-v4-editor):not(.transparent_dialogue_popup)';
-  const SMALL_POPUP = 'dialog.popup:not(.wide_dialogue_popup):not(.wider_dialogue_popup):not(.large_dialogue_popup):not(.transparent_dialogue_popup):not(.cw-v4-editor)';
+  const SHEET_POPUP = 'dialog.popup:is(.wide_dialogue_popup,.wider_dialogue_popup,.large_dialogue_popup):not(.cw-v4-editor):not(.tt-tauritavern-panel-popup):not(.transparent_dialogue_popup)';
+  const SMALL_POPUP = 'dialog.popup:not(.wide_dialogue_popup):not(.wider_dialogue_popup):not(.large_dialogue_popup):not(.transparent_dialogue_popup):not(.cw-v4-editor):not(.tt-tauritavern-panel-popup)';
   const DANGER_TEXT = /删除|移除|清空|永久|Delete|Remove|permanently/i;
   // 2.0.255 标签管理 / 其他开场白（design-content-v1，只在电脑尺寸；CSS ㉜）。弹窗每次打开都是新的，装饰一次就行；
   // 标签列表酒馆会重画（新建 / 删除 / 排序），盯着列表补装饰。原来的按钮只是搬位置，事件都在。
