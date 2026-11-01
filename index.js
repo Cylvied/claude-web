@@ -2850,12 +2850,17 @@ if (CLAUDE_ENABLED) {
       return /T\s*G\s*D\s*\u601d\u7ef4\u94fe|draft[_\s-]*notes/i.test(text);
     }
     function paintEmbeddedFrame(frame) {
-      frame.setAttribute("data-claude-transparent-surface", "true");
-      frame.style.setProperty("background", "transparent", "important");
-      frame.style.setProperty("background-color", "transparent", "important");
+      if (frame.getAttribute("data-claude-transparent-surface") !== "true") frame.setAttribute("data-claude-transparent-surface", "true");
+      const setSurfaceStyle = (name, value) => {
+        if (frame.style.getPropertyValue(name) !== value || frame.style.getPropertyPriority(name) !== "important") {
+          frame.style.setProperty(name, value, "important");
+        }
+      };
+      setSurfaceStyle("background", "transparent");
+      setSurfaceStyle("background-color", "transparent");
       const rootScheme = hostWindow.getComputedStyle(hostDocument.documentElement).colorScheme || "";
       const scheme = /dark/.test(rootScheme) ? "dark" : /light/.test(rootScheme) || hostDocument.documentElement.dataset.claudeIntegratedTheme === "day" ? "light" : "dark";
-      frame.style.setProperty("color-scheme", scheme, "important");
+      setSurfaceStyle("color-scheme", scheme);
       const injectedCss = `\n      :root { color-scheme: ${scheme}; }\n      html, body {\n        box-sizing: border-box !important;\n        width: 100% !important;\n        min-width: 0 !important;\n        margin: 0 !important;\n        padding: 0 !important;\n        border: 0 !important;\n        outline: 0 !important;\n        box-shadow: none !important;\n        background: transparent !important;\n        background-color: transparent !important;\n      }\n    `;
       const srcdoc = frame.getAttribute("srcdoc");
       if (srcdoc && !srcdoc.includes("\x3c!-- claude-transparent-surface --\x3e")) {
@@ -2874,7 +2879,7 @@ if (CLAUDE_ENABLED) {
           style.id = EMBED_STYLE_ID;
           (frameDocument.head ?? frameDocument.documentElement).append(style);
         }
-        style.textContent = injectedCss;
+        if (style.textContent !== injectedCss) style.textContent = injectedCss;
       } catch {}
     }
     function refreshRegexSurfaceShells() {
@@ -6717,6 +6722,8 @@ if (CLAUDE_ENABLED) {
     function mutationNeedsFullRefresh(record) {
       const target = record.target instanceof hostWindow.Element ? record.target : record.target.parentElement;
       if (!(target instanceof hostWindow.Element)) return !0;
+      // WebKit can emit attribute records even when a write leaves the value unchanged.
+      if (record.type === "attributes" && record.oldValue === target.getAttribute(record.attributeName)) return !1;
       if (target.closest("#form_sheld, #send_form")) {
         hostWindow.ResizeObserver || scheduleMobileComposerInset();
         return !1;
