@@ -1,11 +1,11 @@
-import { preferencesFor } from './preferences.js?v=2.0.161';
-import { installOfficialWeb } from './official-web.js?v=2.0.161';
-import { officialIcons } from './official-icons.js?v=2.0.161';
-import { createDrawerLayouts, actionLabel } from './official-drawers.js?v=2.0.161';
-import { tr } from './official-i18n.js?v=2.0.161';
-import { createTTPanelRuntime } from './official-tt-panel-runtime.js?v=2.0.161';
-import { createBackgroundFilters } from './background-filters.js?v=2.0.161';
-import { createPromptScroll } from './official-prompt-scroll.js?v=2.0.161';
+import { preferencesFor } from './preferences.js?v=2.0.162';
+import { installOfficialWeb } from './official-web.js?v=2.0.162';
+import { officialIcons } from './official-icons.js?v=2.0.162';
+import { createDrawerLayouts, actionLabel } from './official-drawers.js?v=2.0.162';
+import { tr } from './official-i18n.js?v=2.0.162';
+import { createTTPanelRuntime } from './official-tt-panel-runtime.js?v=2.0.162';
+import { createBackgroundFilters } from './background-filters.js?v=2.0.162';
+import { createPromptScroll } from './official-prompt-scroll.js?v=2.0.162';
 /* Live adaptation of design-v4. Native drawers stay beneath their toggles:
  * ST resolves toggle.parent().find('.drawer-content'), and plugins delegate to
  * their original containers. Never import the preview's snapshots or fake data.
@@ -479,6 +479,23 @@ export function installOfficialLayout(win = window, { defaultChatWidth = 55 } = 
     s.dispatchEvent(new Event('input', {bubbles: true}));
     s.dispatchEvent(new Event('change', {bubbles: true}));
   }
+  // 161 后（列表标题显示成了「model_custom_select」）：标题只取给人看的字——行标题、API 页的行标题、<label for>、
+  // 紧挨着的标题 / 标签元素、aria-label、title；不再退到 name / id，都没有就不显示标题。labelFor 别处照旧。
+  function selTitle(sel) {
+    const txt = n => (n?.textContent || '').replace(/\s+/g, ' ').trim();
+    const row = sel.closest('.cw-v4-row,.cw-v4-mapped-setting');
+    const api = sel.closest('.cw-v4-api-row,.cw-v4-api-inline-row');
+    const label = sel.id && doc.querySelector(`label[for="${win.CSS.escape(sel.id)}"]`);
+    const prev = sel.previousElementSibling;
+    return [
+      txt(row?.querySelector('.cw-v4-row-title')),
+      txt(api?.querySelector(':scope>.cw-v4-api-label>:is(h3,h4,h5),:scope>:is(h3,h4,h5)')),
+      txt(label),
+      prev?.matches('h3,h4,h5,h6,label,small,span') ? txt(prev) : '',
+      (sel.getAttribute('aria-label') || '').trim(),
+      (sel.title || '').trim(),
+    ].find(Boolean) || '';
+  }
   function openSelMenu(sel) {
     closeSelMenu();
     const m = make('div', 'cw-v4-selmenu'), list = make('div', 'cw-v4-selmenu-list');
@@ -490,7 +507,7 @@ export function installOfficialLayout(win = window, { defaultChatWidth = 55 } = 
     let search = null;
     // 手机：顶上一行灰字写这个下拉是干什么的（行标题），底下一个「取消」；背景压暗，点暗处也关。
     if (mobile()) {
-      const title = (sel.closest('.cw-v4-row,.cw-v4-mapped-setting')?.querySelector('.cw-v4-row-title')?.textContent || labelFor(sel) || '').trim();
+      const title = selTitle(sel);
       if (title && title.length <= 30) m.append(make('div', 'cw-v4-selmenu-title', title));
       m.addEventListener('click', e => { if (e.target === m) closeSelMenu(); });
     }
@@ -532,6 +549,7 @@ export function installOfficialLayout(win = window, { defaultChatWidth = 55 } = 
     markSel(cur >= 0 ? cur : selItems.findIndex(it => !it.disabled));
     if (search) {
       search.addEventListener('input', () => { build(search.value.trim().toLocaleLowerCase()); const c = selItems.findIndex(it => it.el.classList.contains('cw-sel')); markSel(c >= 0 ? c : selItems.findIndex(it => !it.disabled)); });
+      search.addEventListener('focus', () => { search.dataset.cwFocusAt = String(Date.now()); });
       if (!mobile()) search.focus({preventScroll: true});
     }
   }
@@ -1114,7 +1132,17 @@ export function installOfficialLayout(win = window, { defaultChatWidth = 55 } = 
       }
       if (selMenu) closeSelMenu();
     }, true);
-    on(doc, 'scroll', e => { if (selMenu && !selMenu.contains(e.target)) closeSelMenu(); }, true);
+    // 161 后（TT / 安卓：点列表里的「搜索」，键盘一弹列表就关了）：键盘弹起时 WebView 会滚文档让输入框露出来，
+    // 那次滚动的 target 是 document，不在列表里。手机上搜索框有焦点、或刚聚焦 600ms 内，文档级的滚动不算；列表外的元素真滚了照旧关。
+    on(doc, 'scroll', e => {
+      if (!selMenu || selMenu.contains(e.target)) return;
+      const t = e.target, docLevel = t === doc || t === doc.documentElement || t === doc.body || t === doc.scrollingElement;
+      if (docLevel && mobile()) {
+        const s = selMenu.querySelector('.cw-v4-selmenu-search');
+        if (s && (doc.activeElement === s || Date.now() - (+s.dataset.cwFocusAt || 0) < 600)) return;
+      }
+      closeSelMenu();
+    }, true);
     // 2.0.243（Lulu：预设从 Default 换成 Kemini，预设自带的「首次使用配置」窗口一点，整个设置就关了）：
     // 酒馆 script.js 的 html touchstart/mousedown 把按在 .openDrawer 外面的都当成「点外面」关抽屉。电脑上设置是对话框，
     // 只该由背景（它自己处理）、× 和 Esc 关；浮在设置上面的东西（别的扩展的窗口、我们挂在 body 上的外壳和浮层）按下时不往上传。
@@ -1704,6 +1732,29 @@ export function installOfficialLayout(win = window, { defaultChatWidth = 55 } = 
       root.style.setProperty('--cw-v4-menu-maxh', Math.max(160, Math.floor(extBtn.getBoundingClientRect().top - 28)) + 'px');
     }, true);
     disposers.push(() => { root.style.removeProperty('--cw-v4-menu-w'); root.style.removeProperty('--cw-v4-menu-shift'); root.style.removeProperty('--cw-v4-menu-maxh'); });
+    // 2026-11-02 输入框左边的顺序（QR助手 6.0.0「输入框区域」排序，terpsichorewest）：ST 自己用 order 排（选项菜单 2、魔棒 4，
+    // 跟 DOM 顺序无关），CW 用 !important 的 order 改成魔棒在前、选项菜单在后，于是插件设的 order 也被盖掉了。
+    // 把 CW 的 order 临时拿掉量一下：两个按钮的 order 不是 ST 原来的 2 / 4，或者左边哪个按钮有 inline order，
+    // 就是别的插件排过，标 data-cw-v4-third-order，CW 不再摆（styles/official-layout.css）。插件撤掉排序后又回到 CW 的默认。
+    const leftForm = doc.getElementById('leftSendForm');
+    if (leftForm) {
+      const syncOrder = () => {
+        const wand = doc.getElementById('extensionsMenuButton'), opt = doc.getElementById('options_button');
+        let third = false;
+        if (wand && opt) {
+          const was = leftForm.hasAttribute('data-cw-v4-third-order');
+          if (!was) leftForm.setAttribute('data-cw-v4-third-order', '');
+          third = win.getComputedStyle(opt).order !== '2' || win.getComputedStyle(wand).order !== '4' || [...leftForm.children].some(k => k.style.order !== '');
+          if (!third) leftForm.removeAttribute('data-cw-v4-third-order');
+        } else leftForm.removeAttribute('data-cw-v4-third-order');
+      };
+      let orderFrame = 0;
+      const queueOrder = () => { if (!orderFrame) orderFrame = win.requestAnimationFrame(() => { orderFrame = 0; syncOrder(); }); };
+      syncOrder();
+      observe(leftForm, queueOrder, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class']});
+      observe(doc.head, queueOrder, {childList:true});   // 插件用自己的 <style> 设 order
+      disposers.push(() => { win.cancelAnimationFrame(orderFrame); leftForm.removeAttribute('data-cw-v4-third-order'); });
+    }
     const ctx = win.SillyTavern?.getContext?.();
     for (const key of ['CHAT_CHANGED','CHARACTER_MESSAGE_RENDERED','USER_MESSAGE_RENDERED','MESSAGE_SWIPED','SETTINGS_LOADED','APP_READY']) {
       const event = ctx?.eventTypes?.[key]; if (event && ctx.eventSource?.on) { ctx.eventSource.on(event,schedule); disposers.push(() => ctx.eventSource.removeListener?.(event,schedule)); }
